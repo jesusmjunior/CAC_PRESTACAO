@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from urllib.error import URLError
 
 # -------------------- CONFIGURAÇÕES INICIAIS --------------------
 st.set_page_config(page_title="📂 Dashboard Documental", layout="wide")
@@ -18,13 +17,9 @@ DICIONARIO_LOGICO = {
 # -------------------- CARREGAMENTO DE DADOS --------------------
 @st.cache_data(show_spinner="Carregando dados...")
 def load_data():
-    try:
-        file_url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMXKjpKX5zUTvnv1609z3cnmU3FtTmDy4Y0NHYgEMFc78ZjC0ZesQoNeYafZqWtSl_deKwwBI1W0AB/pub?output=csv'
-        df = pd.read_csv(file_url)
-        return df
-    except URLError:
-        st.error("Erro ao acessar os dados online. Verifique a conexão ou a URL da planilha.")
-        return pd.DataFrame()
+    file_url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMXKjpKX5zUTvnv1609z3cnmU3FtTmDy4Y0NHYgEMFc78ZjC0ZesQoNeYafZqWtSl_deKwwBI1W0AB/pub?output=csv'
+    df = pd.read_csv(file_url)
+    return df
 
 df = load_data()
 
