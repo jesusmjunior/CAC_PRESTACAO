@@ -1,12 +1,14 @@
 import streamlit as st
 import pandas as pd
 from urllib.error import URLError
+from io import BytesIO
+from wordcloud import WordCloud
 
 # -------------------- CONFIGURAÇÕES INICIAIS --------------------
 st.set_page_config(page_title="📂 Dashboard Documental", layout="wide")
 
 st.title("📂 DASHBOARD DOCUMENTAL")
-st.markdown("**Sistema de Classificação Documental com Filtros Dinâmicos e Visualização Correta dos Dados**")
+st.markdown("**Gestão Documental Integrada | Aplicação de Teoria de Conjuntos + Lógica Fuzzy**")
 
 # -------------------- CONFIGURAÇÕES FUZZY --------------------
 DICIONARIO_LOGICO = {
@@ -29,73 +31,66 @@ def load_data():
 df = load_data()
 
 if not df.empty:
-    st.subheader("Visualização Completa dos Dados")
-    st.dataframe(df, use_container_width=True)
-
-    # -------------------- CONSTRUÇÃO CLASSES PRIMÁRIAS --------------------
-    classes_primarias = df['Classe_Final_V2'].value_counts().head(10).index.tolist()
-
-    # -------------------- FILTROS DINÂMICOS --------------------
-    st.markdown("---")
-    st.subheader("Filtros Dinâmicos")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        ano_filter = st.multiselect('Ano:', options=sorted(df['Nome'].str.extract(r'(\d{4})').dropna()[0].unique()), default=sorted(df['Nome'].str.extract(r'(\d{4})').dropna()[0].unique()))
-    with col2:
-        municipio_filter = st.multiselect('Município:', options=df['Municipio'].dropna().unique(), default=df['Municipio'].dropna().unique())
-    with col3:
-        classe_filter = st.multiselect('Classe Primária:', options=classes_primarias, default=classes_primarias)
-    with col4:
-        artefato_filter = st.multiselect('Artefato:', options=df['Subclasse_Funcional'].unique(), default=df['Subclasse_Funcional'].unique())
-
+    # -------------------- PRÉ-PROCESSAMENTO --------------------
     df['Ano'] = df['Nome'].str.extract(r'(\d{4})')
     df['Artefato'] = df['Subclasse_Funcional']
+
+    # -------------------- VISÃO GERAL --------------------
+    st.markdown("### 📊 Painel Geral de Gestão Documental")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Documentos", len(df))
+    with col2:
+        st.metric("Total Municípios", df['Municipio'].nunique())
+    with col3:
+        st.metric("Classes Primárias", df['Classe_Final_V2'].nunique())
+
+    st.bar_chart(df['Classe_Final_V2'].value_counts().head(10))
+
+    # -------------------- FILTROS DINÂMICOS SIMPLIFICADOS --------------------
+    with st.sidebar:
+        st.subheader("🔎 Filtros Documentais")
+        ano_filter = st.multiselect('Ano', sorted(df['Ano'].dropna().unique()), default=sorted(df['Ano'].dropna().unique()))
+        municipio_filter = st.multiselect('Município', sorted(df['Municipio'].dropna().unique()), default=sorted(df['Municipio'].dropna().unique()))
+        classe_filter = st.multiselect('Classe', sorted(df['Classe_Final_V2'].dropna().unique()), default=sorted(df['Classe_Final_V2'].dropna().unique()))
 
     filtered_df = df[
         (df['Ano'].isin(ano_filter)) &
         (df['Municipio'].isin(municipio_filter)) &
-        (df['Classe_Final_V2'].isin(classe_filter)) &
-        (df['Artefato'].isin(artefato_filter))
+        (df['Classe_Final_V2'].isin(classe_filter))
     ]
 
-    # -------------------- ABA NAVEGAÇÃO --------------------
-    menu = st.sidebar.selectbox("Navegar", ["📊 Visão Fuzzy", "📑 Estatísticas", "📂 Documentos Classificados", "🔎 Análise Hierárquica"])
+    st.markdown("---")
+    st.markdown("### 📄 Documentos Filtrados")
+    st.dataframe(filtered_df[['Nome', 'Ano', 'Municipio', 'Classe_Final_V2', 'Subclasse_Funcional', 'Link']], use_container_width=True)
 
-    if menu == "📊 Visão Fuzzy":
-        st.subheader('Resumo Fuzzy por Ano e Classe')
-        resumo = filtered_df.groupby(['Ano', 'Classe_Final_V2']).size().reset_index(name='Contagem')
-        resumo['Pertinência'] = resumo['Contagem'].apply(lambda x: DICIONARIO_LOGICO['pertinencia_alta'] if x >= 10 else (DICIONARIO_LOGICO['pertinencia_media'] if x >= 5 else DICIONARIO_LOGICO['pertinencia_baixa']))
-        st.dataframe(resumo, use_container_width=True)
+    # -------------------- MÉTRICA DE REGULARIDADE --------------------
+    st.markdown("---")
+    st.markdown("### 📈 Índice R_i de Regularidade Documental")
+    indice_ri = len(filtered_df) / len(df) if len(df) > 0 else 0
+    pertinencia = "Alta" if indice_ri >= DICIONARIO_LOGICO['pertinencia_alta'] else ("Média" if indice_ri >= DICIONARIO_LOGICO['pertinencia_media'] else "Baixa")
+    st.write(f"**R_i = {indice_ri:.2f} | Pertinência: {pertinencia}**")
 
-        st.subheader("Gráfico Simplificado")
-        st.bar_chart(resumo.set_index('Classe_Final_V2')['Contagem'])
+    # -------------------- HIERARQUIA CLASSE → SUBCLASSE → ATRIBUTO --------------------
+    st.markdown("---")
+    st.markdown("### 🔎 Hierarquia Documental")
+    agrupado = filtered_df.groupby(['Classe_Final_V2', 'Subclasse_Funcional', 'Atributo_Funcional']).size().reset_index(name='Total')
+    st.dataframe(agrupado)
 
-    elif menu == "📑 Estatísticas":
-        st.subheader('Resumo Estatístico Detalhado')
-        count_table = filtered_df.groupby(['Ano', 'Classe_Final_V2', 'Artefato']).size().reset_index(name='Contagem')
-        st.dataframe(count_table)
-
-    elif menu == "📂 Documentos Classificados":
-        st.subheader('Documentos Classificados por Tipologia')
-        table_links = filtered_df[['Nome', 'Ano', 'Municipio', 'Classe_Final_V2', 'Artefato', 'Link']]
-        def make_clickable(link):
-            return f'<a href="{link}" target="_blank">Abrir Documento</a>'
-        table_links['Link'] = table_links['Link'].apply(lambda x: make_clickable(x) if pd.notnull(x) else '')
-        st.write(table_links.to_html(escape=False, index=False), unsafe_allow_html=True)
-
-    elif menu == "🔎 Análise Hierárquica":
-        st.subheader("Hierarquia Classe → Subclasse → Atributos")
-        agrupado = filtered_df.groupby(['Classe_Final_V2', 'Subclasse_Funcional', 'Atributo_Funcional']).size().reset_index(name='Total')
-        st.dataframe(agrupado)
-
-        st.subheader("Sugestão de Filtros Inteligentes")
-        principais = df['Classe_Final_V2'].value_counts().head(10).index.tolist()
-        st.write("**Top 10 Classes:**")
-        for cls in principais:
-            st.write(f"- {cls}")
+    # -------------------- NUVEM DE PALAVRAS - Termos Detectados --------------------
+    st.markdown("---")
+    st.markdown("### ☁️ Nuvem de Palavras dos Artefatos")
+    terms = ' '.join(filtered_df['Termo Detectado'].dropna().astype(str).tolist())
+    if terms:
+        wordcloud = WordCloud(width=800, height=400, background_color='white').generate(terms)
+        buffer = BytesIO()
+        wordcloud.to_image().save(buffer, format='PNG')
+        st.image(buffer)
+    else:
+        st.write('Nenhum termo detectado disponível para nuvem.')
 
     # -------------------- RODAPÉ --------------------
     st.markdown("---")
-    st.caption('Dashboard Documental | Visualização Corrigida e Fuzzy | Powered by Streamlit')
+    st.caption('Dashboard Documental | Visualização Fuzzy, Teoria de Conjuntos & Nuvem | Powered by Streamlit')
 else:
     st.warning("Não foi possível carregar os dados. Verifique a URL ou sua conexão.")
