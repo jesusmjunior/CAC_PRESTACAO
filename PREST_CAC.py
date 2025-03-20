@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
 from urllib.error import URLError
-from io import BytesIO
 
 # -------------------- CONFIGURAÇÕES INICIAIS --------------------
 st.set_page_config(page_title="📂 Dashboard Documental", layout="wide")
 
 st.title("📂 DASHBOARD DOCUMENTAL")
-st.markdown("**Sistema de Classificação Documental com Filtros Dinâmicos, Visualização Fuzzy e Camadas Hierárquicas**")
+st.markdown("**Sistema de Classificação Documental com Filtros Dinâmicos e Visualização Correta dos Dados**")
 
 # -------------------- CONFIGURAÇÕES FUZZY --------------------
 DICIONARIO_LOGICO = {
@@ -20,11 +19,8 @@ DICIONARIO_LOGICO = {
 @st.cache_data(show_spinner="Carregando dados...")
 def load_data():
     try:
-        sheet_url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMXKjpKX5zUTvnv1609z3cnmU3FtTmDy4Y0NHYgEMFc78ZjC0ZesQoNeYafZqWtSl_deKwwBI1W0AB/pub?output=csv'
-        df = pd.read_csv(sheet_url)
-        df['Ano'] = df['Nome'].str.extract(r'(\d{4})')
-        df['Municipio'] = df['Nome'].str.extract(r'(BENEDITO LEITE|[A-Z ]{3,})')
-        df['Artefato'] = df['Subclasse_Funcional']
+        file_url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMXKjpKX5zUTvnv1609z3cnmU3FtTmDy4Y0NHYgEMFc78ZjC0ZesQoNeYafZqWtSl_deKwwBI1W0AB/pub?output=xlsx'
+        df = pd.read_excel(file_url, engine='openpyxl')
         return df
     except URLError:
         st.error("Erro ao acessar os dados online. Verifique a conexão ou a URL da planilha.")
@@ -33,19 +29,27 @@ def load_data():
 df = load_data()
 
 if not df.empty:
+    st.subheader("Visualização Completa dos Dados")
+    st.dataframe(df, use_container_width=True)
+
     # -------------------- CONSTRUÇÃO CLASSES PRIMÁRIAS --------------------
     classes_primarias = df['Classe_Final_V2'].value_counts().head(10).index.tolist()
 
     # -------------------- FILTROS DINÂMICOS --------------------
+    st.markdown("---")
+    st.subheader("Filtros Dinâmicos")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        ano_filter = st.multiselect('Ano:', options=sorted(df['Ano'].dropna().unique()), default=sorted(df['Ano'].dropna().unique()))
+        ano_filter = st.multiselect('Ano:', options=sorted(df['Nome'].str.extract(r'(\d{4})').dropna()[0].unique()), default=sorted(df['Nome'].str.extract(r'(\d{4})').dropna()[0].unique()))
     with col2:
         municipio_filter = st.multiselect('Município:', options=df['Municipio'].dropna().unique(), default=df['Municipio'].dropna().unique())
     with col3:
         classe_filter = st.multiselect('Classe Primária:', options=classes_primarias, default=classes_primarias)
     with col4:
-        artefato_filter = st.multiselect('Artefato:', options=df['Artefato'].unique(), default=df['Artefato'].unique())
+        artefato_filter = st.multiselect('Artefato:', options=df['Subclasse_Funcional'].unique(), default=df['Subclasse_Funcional'].unique())
+
+    df['Ano'] = df['Nome'].str.extract(r'(\d{4})')
+    df['Artefato'] = df['Subclasse_Funcional']
 
     filtered_df = df[
         (df['Ano'].isin(ano_filter)) &
@@ -92,6 +96,6 @@ if not df.empty:
 
     # -------------------- RODAPÉ --------------------
     st.markdown("---")
-    st.caption('Dashboard Documental | Visualização Fuzzy e Hierárquica | Powered by Streamlit')
+    st.caption('Dashboard Documental | Visualização Corrigida e Fuzzy | Powered by Streamlit')
 else:
     st.warning("Não foi possível carregar os dados. Verifique a URL ou sua conexão.")
