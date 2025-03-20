@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
 from urllib.error import URLError
+from io import BytesIO
 
 # -------------------- CONFIGURAÇÕES INICIAIS --------------------
 st.set_page_config(page_title="📂 Dashboard Documental", layout="wide")
 
 st.title("📂 DASHBOARD DOCUMENTAL")
-st.markdown("**Sistema de Classificação Documental com Filtros Dinâmicos e Visualização Fuzzy**")
+st.markdown("**Sistema de Classificação Documental com Filtros Dinâmicos, Visualização Fuzzy e Camadas Hierárquicas**")
 
 # -------------------- CONFIGURAÇÕES FUZZY --------------------
 DICIONARIO_LOGICO = {
@@ -32,6 +33,9 @@ def load_data():
 df = load_data()
 
 if not df.empty:
+    # -------------------- CONSTRUÇÃO CLASSES PRIMÁRIAS --------------------
+    classes_primarias = df['Classe_Final_V2'].value_counts().head(10).index.tolist()
+
     # -------------------- FILTROS DINÂMICOS --------------------
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -39,7 +43,7 @@ if not df.empty:
     with col2:
         municipio_filter = st.multiselect('Município:', options=df['Municipio'].dropna().unique(), default=df['Municipio'].dropna().unique())
     with col3:
-        classe_filter = st.multiselect('Classe:', options=df['Classe_Final_V2'].unique(), default=df['Classe_Final_V2'].unique())
+        classe_filter = st.multiselect('Classe Primária:', options=classes_primarias, default=classes_primarias)
     with col4:
         artefato_filter = st.multiselect('Artefato:', options=df['Artefato'].unique(), default=df['Artefato'].unique())
 
@@ -51,17 +55,20 @@ if not df.empty:
     ]
 
     # -------------------- ABA NAVEGAÇÃO --------------------
-    menu = st.sidebar.selectbox("Navegar", ["📊 Resumo Fuzzy", "📑 Estatísticas", "📂 Documentos Classificados"])
+    menu = st.sidebar.selectbox("Navegar", ["📊 Visão Fuzzy", "📑 Estatísticas", "📂 Documentos Classificados", "🔎 Análise Hierárquica"])
 
-    if menu == "📊 Resumo Fuzzy":
+    if menu == "📊 Visão Fuzzy":
         st.subheader('Resumo Fuzzy por Ano e Classe')
         resumo = filtered_df.groupby(['Ano', 'Classe_Final_V2']).size().reset_index(name='Contagem')
         resumo['Pertinência'] = resumo['Contagem'].apply(lambda x: DICIONARIO_LOGICO['pertinencia_alta'] if x >= 10 else (DICIONARIO_LOGICO['pertinencia_media'] if x >= 5 else DICIONARIO_LOGICO['pertinencia_baixa']))
         st.dataframe(resumo, use_container_width=True)
 
+        st.subheader("Gráfico Simplificado")
+        st.bar_chart(resumo.set_index('Classe_Final_V2')['Contagem'])
+
     elif menu == "📑 Estatísticas":
         st.subheader('Resumo Estatístico Detalhado')
-        count_table = filtered_df.groupby(['Ano', 'Classe_Final_V2']).size().reset_index(name='Contagem')
+        count_table = filtered_df.groupby(['Ano', 'Classe_Final_V2', 'Artefato']).size().reset_index(name='Contagem')
         st.dataframe(count_table)
 
     elif menu == "📂 Documentos Classificados":
@@ -72,8 +79,19 @@ if not df.empty:
         table_links['Link'] = table_links['Link'].apply(lambda x: make_clickable(x) if pd.notnull(x) else '')
         st.write(table_links.to_html(escape=False, index=False), unsafe_allow_html=True)
 
+    elif menu == "🔎 Análise Hierárquica":
+        st.subheader("Hierarquia Classe → Subclasse → Atributos")
+        agrupado = filtered_df.groupby(['Classe_Final_V2', 'Subclasse_Funcional', 'Atributo_Funcional']).size().reset_index(name='Total')
+        st.dataframe(agrupado)
+
+        st.subheader("Sugestão de Filtros Inteligentes")
+        principais = df['Classe_Final_V2'].value_counts().head(10).index.tolist()
+        st.write("**Top 10 Classes:**")
+        for cls in principais:
+            st.write(f"- {cls}")
+
     # -------------------- RODAPÉ --------------------
     st.markdown("---")
-    st.caption('Dashboard Documental | Classificação & Visualização Fuzzy | Powered by Streamlit')
+    st.caption('Dashboard Documental | Visualização Fuzzy e Hierárquica | Powered by Streamlit')
 else:
     st.warning("Não foi possível carregar os dados. Verifique a URL ou sua conexão.")
