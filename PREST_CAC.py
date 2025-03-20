@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-from wordcloud import WordCloud
-from io import BytesIO
 
 # -------------------- CONFIGURAÇÕES INICIAIS --------------------
 st.set_page_config(page_title="📂 Dashboard Documental", layout="wide")
@@ -47,9 +45,9 @@ filtered_df = df[
 ]
 
 # -------------------- ABA NAVEGAÇÃO --------------------
-menu = st.sidebar.selectbox("Navegar", ["📊 Resumo Gráfico Simplificado", "📑 Estatísticas", "🧩 Nuvem & Artefatos", "📂 Documentos Classificados"])
+menu = st.sidebar.selectbox("Navegar", ["📊 Resumo Simplificado", "📑 Estatísticas", "📂 Documentos Classificados"])
 
-if menu == "📊 Resumo Gráfico Simplificado":
+if menu == "📊 Resumo Simplificado":
     st.subheader('Resumo por Ano e Classe')
     resumo = filtered_df.groupby(['Ano', 'Classe_Final_V2']).size().reset_index(name='Contagem')
     st.dataframe(resumo, use_container_width=True)
@@ -58,20 +56,6 @@ elif menu == "📑 Estatísticas":
     st.subheader('Resumo Estatístico')
     count_table = filtered_df.groupby(['Ano', 'Classe_Final_V2']).size().reset_index(name='Contagem')
     st.dataframe(count_table)
-
-elif menu == "🧩 Nuvem & Artefatos":
-    st.subheader('Artefatos por Termo Detectado')
-    st.dataframe(filtered_df[['Nome', 'Termo Detectado', 'Link']].dropna())
-
-    st.subheader('Nuvem de Palavras - Termos Detectados')
-    terms = ' '.join(filtered_df['Termo Detectado'].dropna().astype(str).tolist())
-    if terms:
-        wordcloud = WordCloud(width=800, height=400, background_color='white').generate(terms)
-        buffer = BytesIO()
-        wordcloud.to_image().save(buffer, format='PNG')
-        st.image(buffer)
-    else:
-        st.write('Nenhum termo detectado para exibir.')
 
 elif menu == "📂 Documentos Classificados":
     st.subheader('Documentos Classificados por Tipologia')
