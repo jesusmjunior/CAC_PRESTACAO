@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 from wordcloud import WordCloud
 from io import BytesIO
 
@@ -48,16 +47,12 @@ filtered_df = df[
 ]
 
 # -------------------- ABA NAVEGAÇÃO --------------------
-menu = st.sidebar.selectbox("Navegar", ["📊 Representação Gráfica", "📑 Estatísticas", "🧩 Nuvem & Artefatos", "📂 Documentos Classificados"])
+menu = st.sidebar.selectbox("Navegar", ["📊 Resumo Gráfico Simplificado", "📑 Estatísticas", "🧩 Nuvem & Artefatos", "📂 Documentos Classificados"])
 
-if menu == "📊 Representação Gráfica":
-    st.subheader('Distribuição de Artefatos por Ano')
-    fig1 = px.histogram(filtered_df, x='Ano', color='Classe_Final_V2', barmode='group')
-    st.plotly_chart(fig1, use_container_width=True)
-
-    st.subheader('Distribuição por Classe')
-    fig2 = px.pie(filtered_df, names='Classe_Final_V2', title='Proporção por Classe')
-    st.plotly_chart(fig2, use_container_width=True)
+if menu == "📊 Resumo Gráfico Simplificado":
+    st.subheader('Resumo por Ano e Classe')
+    resumo = filtered_df.groupby(['Ano', 'Classe_Final_V2']).size().reset_index(name='Contagem')
+    st.dataframe(resumo, use_container_width=True)
 
 elif menu == "📑 Estatísticas":
     st.subheader('Resumo Estatístico')
