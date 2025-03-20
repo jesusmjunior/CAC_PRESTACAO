@@ -3,64 +3,54 @@ import pandas as pd
 import plotly.express as px
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
-import gspread
-from google.oauth2.service_account import Credentials
 
-# ========================
-# 1. Conectar ao Google Sheets
-# ========================
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file('credenciais.json', scopes=SCOPES)
-client = gspread.authorize(creds)
+# -------------------- CONFIGURAÇÕES INICIAIS --------------------
+st.set_page_config(page_title="📂 Dashboard Documental", layout="wide")
 
-# Abrir a planilha pelo link
-sheet_url = 'https://docs.google.com/spreadsheets/d/1nWNE9KB7o1I8lgqY-V29pSXjNNmwpq57vyz_14FfTC0/edit?usp=sharing'
-spreadsheet = client.open_by_url(sheet_url)
-sheet = spreadsheet.sheet1
+st.title("📂 DASHBOARD DOCUMENTAL")
+st.markdown("**Sistema de Classificação Documental com Filtros Dinâmicos e Representação Visual**")
 
-data = sheet.get_all_records()
-df = pd.DataFrame(data)
+# -------------------- CONFIGURAÇÕES FUZZY --------------------
+DICIONARIO_LOGICO = {
+    'pertinencia_alta': 0.9,
+    'pertinencia_media': 0.75,
+    'pertinencia_baixa': 0.6
+}
 
-# ========================
-# 2. Decoupagem dos Campos
-# ========================
-df['Ano'] = df['Nome'].str.extract(r'(\d{4})')
-df['Municipio'] = df['Nome'].str.extract(r'(BENEDITO LEITE|\b[A-Z ]+\b)')
-df['Artefato'] = df['Subclasse_Funcional']
+# -------------------- CARREGAMENTO DE DADOS --------------------
+@st.cache_data(show_spinner="Carregando dados...")
+def load_data():
+    url = 'https://raw.githubusercontent.com/SEU-USUARIO/SEU-REPO/main/Classificacao_Completa_Final_Funcional.csv'
+    df = pd.read_csv(url)
+    df['Ano'] = df['Nome'].str.extract(r'(\d{4})')
+    df['Municipio'] = df['Nome'].str.extract(r'(BENEDITO LEITE|\b[A-Z ]+\b)')
+    df['Artefato'] = df['Subclasse_Funcional']
+    return df
 
-# ========================
-# 3. Início do Streamlit
-# ========================
-st.set_page_config(page_title='Dashboard Documental', layout='wide')
-st.title('📊 Dashboard Documental - Lógica Fuzzy')
+df = load_data()
 
-# ========================
-# 4. Filtros Dinâmicos
-# ========================
-col1, col2, col3 = st.columns(3)
+# -------------------- FILTROS DINÂMICOS --------------------
+col1, col2, col3, col4 = st.columns(4)
 with col1:
-    ano_filter = st.multiselect('Selecione o Ano:', options=sorted(df['Ano'].dropna().unique()), default=sorted(df['Ano'].dropna().unique()))
+    ano_filter = st.multiselect('Ano:', options=sorted(df['Ano'].dropna().unique()), default=sorted(df['Ano'].dropna().unique()))
 with col2:
-    municipio_filter = st.multiselect('Selecione o Município:', options=df['Municipio'].dropna().unique(), default=df['Municipio'].dropna().unique())
+    municipio_filter = st.multiselect('Município:', options=df['Municipio'].dropna().unique(), default=df['Municipio'].dropna().unique())
 with col3:
-    classe_filter = st.multiselect('Selecione a Classe:', options=df['Classe_Final_V2'].unique(), default=df['Classe_Final_V2'].unique())
+    classe_filter = st.multiselect('Classe:', options=df['Classe_Final_V2'].unique(), default=df['Classe_Final_V2'].unique())
+with col4:
+    artefato_filter = st.multiselect('Artefato:', options=df['Artefato'].unique(), default=df['Artefato'].unique())
 
-# Aplicar filtros
 filtered_df = df[
     (df['Ano'].isin(ano_filter)) &
     (df['Municipio'].isin(municipio_filter)) &
-    (df['Classe_Final_V2'].isin(classe_filter))
+    (df['Classe_Final_V2'].isin(classe_filter)) &
+    (df['Artefato'].isin(artefato_filter))
 ]
 
-# ========================
-# 5. Tabs do Dashboard
-# ========================
-tab1, tab2, tab3 = st.tabs(['📈 Representação Gráfica', '📑 Estatísticas', '🧩 Artefatos e Nuvem'])
+# -------------------- ABA NAVEGAÇÃO --------------------
+menu = st.sidebar.selectbox("Navegar", ["📊 Representação Gráfica", "📑 Estatísticas", "🧩 Nuvem & Artefatos", "📂 Documentos Classificados"])
 
-# ========================
-# 6. Representação Gráfica
-# ========================
-with tab1:
+if menu == "📊 Representação Gráfica":
     st.subheader('Distribuição de Artefatos por Ano')
     fig1 = px.histogram(filtered_df, x='Ano', color='Classe_Final_V2', barmode='group')
     st.plotly_chart(fig1, use_container_width=True)
@@ -69,18 +59,12 @@ with tab1:
     fig2 = px.pie(filtered_df, names='Classe_Final_V2', title='Proporção por Classe')
     st.plotly_chart(fig2, use_container_width=True)
 
-# ========================
-# 7. Estatísticas
-# ========================
-with tab2:
+elif menu == "📑 Estatísticas":
     st.subheader('Resumo Estatístico')
     count_table = filtered_df.groupby(['Ano', 'Classe_Final_V2']).size().reset_index(name='Contagem')
     st.dataframe(count_table)
 
-# ========================
-# 8. Artefatos e Nuvem de Palavras
-# ========================
-with tab3:
+elif menu == "🧩 Nuvem & Artefatos":
     st.subheader('Artefatos por Termo Detectado')
     st.dataframe(filtered_df[['Nome', 'Termo Detectado', 'Link']].dropna())
 
@@ -94,7 +78,14 @@ with tab3:
     else:
         st.write('Nenhum termo detectado para exibir.')
 
-# ========================
-# 9. Footer
-# ========================
-st.caption('Construído com Streamlit + Integração Google Sheets | Publicação GitHub + Streamlit Cloud')
+elif menu == "📂 Documentos Classificados":
+    st.subheader('Documentos Classificados por Tipologia')
+    table_links = filtered_df[['Nome', 'Ano', 'Municipio', 'Classe_Final_V2', 'Artefato', 'Link']]
+    def make_clickable(link):
+        return f'<a href="{link}" target="_blank">Abrir Documento</a>'
+    table_links['Link'] = table_links['Link'].apply(lambda x: make_clickable(x) if pd.notnull(x) else '')
+    st.write(table_links.to_html(escape=False, index=False), unsafe_allow_html=True)
+
+# -------------------- RODAPÉ --------------------
+st.markdown("---")
+st.caption('Dashboard Documental | Classificação & Visualização Inteligente | Powered by Streamlit')
