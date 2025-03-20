@@ -17,7 +17,7 @@ DICIONARIO_LOGICO = {
 # -------------------- CARREGAMENTO DE DADOS --------------------
 @st.cache_data(show_spinner="Carregando dados...")
 def load_data():
-    url = 'https://raw.githubusercontent.com/SEU-USUARIO/SEU-REPO/main/Classificacao_Completa_Final_Funcional.csv'
+    url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMXKjpKX5zUTvnv1609z3cnmU3FtTmDy4Y0NHYgEMFc78ZjC0ZesQoNeYafZqWtSl_deKwwBI1W0AB/pub?gid=2007751228&single=true&output=csv'
     df = pd.read_csv(url)
     df['Ano'] = df['Nome'].str.extract(r'(\d{4})')
     df['Municipio'] = df['Nome'].str.extract(r'(BENEDITO LEITE|\b[A-Z ]+\b)')
