@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 from urllib.error import URLError
-from io import BytesIO
-from wordcloud import WordCloud
 
 # -------------------- CONFIGURAÇÕES INICIAIS --------------------
 st.set_page_config(page_title="📂 Dashboard Documental", layout="wide")
@@ -77,20 +75,8 @@ if not df.empty:
     agrupado = filtered_df.groupby(['Classe_Final_V2', 'Subclasse_Funcional', 'Atributo_Funcional']).size().reset_index(name='Total')
     st.dataframe(agrupado)
 
-    # -------------------- NUVEM DE PALAVRAS - Termos Detectados --------------------
-    st.markdown("---")
-    st.markdown("### ☁️ Nuvem de Palavras dos Artefatos")
-    terms = ' '.join(filtered_df['Termo Detectado'].dropna().astype(str).tolist())
-    if terms:
-        wordcloud = WordCloud(width=800, height=400, background_color='white').generate(terms)
-        buffer = BytesIO()
-        wordcloud.to_image().save(buffer, format='PNG')
-        st.image(buffer)
-    else:
-        st.write('Nenhum termo detectado disponível para nuvem.')
-
     # -------------------- RODAPÉ --------------------
     st.markdown("---")
-    st.caption('Dashboard Documental | Visualização Fuzzy, Teoria de Conjuntos & Nuvem | Powered by Streamlit')
+    st.caption('Dashboard Documental | Visualização Fuzzy & Teoria de Conjuntos | Powered by Streamlit')
 else:
     st.warning("Não foi possível carregar os dados. Verifique a URL ou sua conexão.")
